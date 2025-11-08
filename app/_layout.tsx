@@ -1,24 +1,40 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+// Root Layout: Configure PaperProvider with theme switching
+import { ThemeProvider, useThemeContext } from '@/src/context/ThemeContext';
+import { darkTheme, lightTheme } from '@/src/theme';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import React from 'react';
+import 'react-native-gesture-handler';
+import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootNavigator() {
+  const { isDarkMode } = useThemeContext();
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <PaperProvider theme={theme}>
+      <Stack 
+        key={isDarkMode ? 'dark' : 'light'}
+        screenOptions={{ 
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background }
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(main)" />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </PaperProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <RootNavigator />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
