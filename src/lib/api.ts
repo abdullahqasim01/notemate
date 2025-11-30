@@ -33,6 +33,8 @@ class ApiClient {
       },
     });
 
+    console.log('API Client initialized with Base URL:', API_CONFIG.BASE_URL);
+
     // Request interceptor to add Firebase token
     this.axiosInstance.interceptors.request.use(
       async (config) => {
