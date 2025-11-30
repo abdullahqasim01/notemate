@@ -1,4 +1,6 @@
 // Root Layout: Configure PaperProvider with theme switching
+import { AuthProvider } from '@/src/context/AuthContext';
+import { ChatProvider } from '@/src/context/ChatContext';
 import { ThemeProvider, useThemeContext } from '@/src/context/ThemeContext';
 import { darkTheme, lightTheme } from '@/src/theme';
 import { Stack } from 'expo-router';
@@ -32,9 +34,13 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <RootNavigator />
-      </ThemeProvider>
+      <AuthProvider>
+        <ChatProvider>
+          <ThemeProvider>
+            <RootNavigator />
+          </ThemeProvider>
+        </ChatProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

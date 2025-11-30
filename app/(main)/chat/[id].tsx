@@ -1,109 +1,110 @@
 // Chat Screen: ChatGPT-style conversation interface with extracted notes
 import { ChatBubble } from '@/src/components/ChatBubble';
-import { Message } from '@/src/types/chat';
-import { useLocalSearchParams } from 'expo-router';
+import { useChatContext } from '@/src/context/ChatContext';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import {
-    Button,
-    Card,
-    Modal,
-    Portal,
-    Text,
-    TextInput,
-    useTheme
+  Button,
+  Card,
+  Modal,
+  Portal,
+  Text,
+  TextInput,
+  useTheme
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams();
+  const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+  const chatId = params.id as string;
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: `I've extracted the key points from your video. Here's a summary:\n\n• Introduction to React Native development\n• Setting up Expo environment\n• Building your first component\n• Understanding state management\n\nFeel free to ask me anything about the video!`,
-      timestamp: new Date(),
-    },
-  ]);
+  const { currentChat, messages: contextMessages, notes, loadChat, loadMessages, addMessage, clearChat, sending } = useChatContext();
   
   const [inputText, setInputText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [sendError, setSendError] = useState<string | null>(null);
 
-  // Mock notes content
-  // TODO: Connect 'View Notes' modal to actual extraction output
-  const mockNotes = `# Video Notes - Chat ${params.id}
+  useEffect(() => {
+    // Load chat data when screen mounts
+    const loadData = async () => {
+      try {
+        await loadChat(chatId);
+        await loadMessages(chatId);
+      } catch (error) {
+        console.error('Failed to load chat:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [chatId]);
 
-## Introduction
-- Overview of React Native and Expo
-- Benefits of cross-platform development
-
-## Setup Process
-1. Install Node.js and npm
-2. Install Expo CLI globally
-3. Create a new Expo project
-4. Start the development server
-
-## Core Concepts
-- Components and props
-- State and lifecycle
-- Styling with StyleSheet
-- Navigation patterns
-
-## Best Practices
-- Use TypeScript for type safety
-- Follow React Native conventions
-- Optimize performance
-- Test on multiple devices
-
-## Conclusion
-- React Native provides excellent developer experience
-- Expo simplifies the development workflow
-- Great for building production apps`;
+  useEffect(() => {
+    // Check if chat is still processing and redirect to generating screen
+    if (currentChat && currentChat.status && currentChat.status !== 'completed' && currentChat.status !== 'done') {
+      const processingStatuses = ['processing', 'transcribing', 'generating_notes'];
+      if (processingStatuses.includes(currentChat.status)) {
+        console.log('Chat still processing, redirecting to generating screen');
+        // Clear chat context before redirecting
+        clearChat();
+        router.replace({
+          pathname: '/(main)/generating' as any,
+          params: { chatId }
+        });
+      }
+    }
+  }, [currentChat]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
-    if (messages.length > 0) {
+    if (contextMessages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages]);
+  }, [contextMessages]);
 
-  // TODO: Integrate backend chat API
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputText,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const text = inputText;
     setInputText('');
+    setSendError(null);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `I understand your question about "${inputText}". Based on the video content, I can help you with that. This is a placeholder response that will be replaced with actual AI-generated content.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+    const result = await addMessage(chatId, text);
+    
+    if (result.error) {
+      console.error('Failed to send message:', result.error);
+      setSendError(result.error);
+      // Restore the input text so user can retry
+      setInputText(text);
+    }
   };
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading chat...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
@@ -127,15 +128,37 @@ export default function ChatScreen() {
         {/* Messages List */}
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={contextMessages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ChatBubble message={item} />}
           contentContainerStyle={styles.messagesList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text variant="bodyLarge" style={styles.emptyText}>
+                No messages yet. Start a conversation!
+              </Text>
+            </View>
+          }
+          ListFooterComponent={
+            sending ? (
+              <View style={styles.loadingMessage}>
+                <ActivityIndicator size="small" />
+                <Text variant="bodySmall" style={styles.loadingText}>
+                  AI is thinking...
+                </Text>
+              </View>
+            ) : null
+          }
         />
 
         {/* Input Area */}
         <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface }]}>
+          {sendError && (
+            <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+              {sendError}
+            </Text>
+          )}
           <TextInput
             mode="outlined"
             placeholder="Ask me anything about the video..."
@@ -145,6 +168,7 @@ export default function ChatScreen() {
             maxLength={500}
             style={styles.input}
             onSubmitEditing={handleSend}
+            error={!!sendError}
             right={
               <TextInput.Icon
                 icon="send"
@@ -170,16 +194,36 @@ export default function ChatScreen() {
           <Card>
             <Card.Title title="Extracted Notes" />
             <Card.Content>
-              <FlatList
-                data={mockNotes.split('\n')}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) => (
-                  <Text variant="bodyMedium" style={styles.noteText}>
-                    {item}
-                  </Text>
-                )}
-                style={styles.notesList}
-              />
+              {notes && notes.trim() ? (
+                <ScrollView style={styles.notesList}>
+                  <Markdown
+                    style={{
+                      body: { color: theme.colors.onSurface },
+                      heading1: { color: theme.colors.primary, fontSize: 24, fontWeight: 'bold', marginVertical: 8 },
+                      heading2: { color: theme.colors.primary, fontSize: 20, fontWeight: 'bold', marginVertical: 6 },
+                      heading3: { color: theme.colors.primary, fontSize: 18, fontWeight: 'bold', marginVertical: 4 },
+                      bullet_list: { marginVertical: 4 },
+                      ordered_list: { marginVertical: 4 },
+                      code_inline: { backgroundColor: theme.colors.surfaceVariant, padding: 2, borderRadius: 4 },
+                      code_block: { backgroundColor: theme.colors.surfaceVariant, padding: 8, borderRadius: 4 },
+                      link: { color: theme.colors.primary },
+                      blockquote: { 
+                        backgroundColor: theme.colors.surfaceVariant, 
+                        borderLeftColor: theme.colors.primary, 
+                        borderLeftWidth: 4,
+                        paddingLeft: 8,
+                        marginVertical: 4
+                      },
+                    }}
+                  >
+                    {notes}
+                  </Markdown>
+                </ScrollView>
+              ) : currentChat?.status === 'completed' || currentChat?.status === 'done' ? (
+                <Text variant="bodyMedium">Notes are being processed. Please try again in a moment.</Text>
+              ) : (
+                <Text variant="bodyMedium">Notes will be available once processing is complete.</Text>
+              )}
             </Card.Content>
             <Card.Actions>
               <Button onPress={() => setIsModalVisible(false)}>Close</Button>
@@ -220,7 +264,32 @@ const styles = StyleSheet.create({
   notesList: {
     maxHeight: 400,
   },
-  noteText: {
-    marginVertical: 2,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    textAlign: 'center',
+    opacity: 0.6,
+  },
+  errorText: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  loadingMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  loadingText: {
+    opacity: 0.6,
   },
 });

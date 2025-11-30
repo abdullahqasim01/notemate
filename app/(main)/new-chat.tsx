@@ -1,4 +1,6 @@
 // New Chat Screen: Starting point for uploading videos and creating new conversations
+import { useChatContext } from '@/src/context/ChatContext';
+import { useFileUpload } from '@/src/hooks/useFileUpload';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -9,12 +11,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function NewChatScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const [uploading, setUploading] = useState(false);
+  const { createChat, clearChat } = useChatContext();
+  const { uploadVideoForChat, uploading } = useFileUpload();
+  const [error, setError] = useState('');
 
   // Handle video upload
   const handleUpload = async () => {
-    setUploading(true);
     try {
+      setError('');
+      
       const result = await DocumentPicker.getDocumentAsync({
         type: 'video/*',
         copyToCacheDirectory: true,
@@ -23,16 +28,20 @@ export default function NewChatScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const videoUri = result.assets[0].uri;
         
-        // Navigation: Navigate to generating screen with video URI
+        // Clear any existing chat data
+        clearChat();
+        
+        // Navigate to generating screen with videoUri
         router.push({
           pathname: '/(main)/generating' as any,
-          params: { videoUri },
+          params: { 
+            videoUri 
+          },
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error picking video:', error);
-    } finally {
-      setUploading(false);
+      setError('Failed to pick video');
     }
   };
 
@@ -65,6 +74,12 @@ export default function NewChatScreen() {
           >
             Upload Video
           </Button>
+          
+          {error ? (
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              {error}
+            </Text>
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
@@ -100,5 +115,9 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     paddingHorizontal: 24,
+  },
+  errorText: {
+    marginTop: 16,
+    textAlign: 'center',
   },
 });

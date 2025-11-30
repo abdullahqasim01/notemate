@@ -1,5 +1,5 @@
 // Firebase: Signup screen with email/password registration
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SignupScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { signup } = useAuth();
+  const { signup } = useAuthContext();
   
   // State management
   const [name, setName] = useState('');

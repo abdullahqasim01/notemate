@@ -1,22 +1,22 @@
 // Firebase: Forgot password screen with password reset email
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import {
-  Button,
-  IconButton,
-  Snackbar,
-  Text,
-  TextInput,
-  useTheme,
+    Button,
+    IconButton,
+    Snackbar,
+    Text,
+    TextInput,
+    useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { resetPassword } = useAuth();
+  const { resetPassword } = useAuthContext();
   
   // State management
   const [email, setEmail] = useState('');

@@ -1,7 +1,8 @@
 // Component: Chat bubble for displaying messages in ChatGPT-like style
-import { Message } from '@/src/types/chat';
+import { Message } from '@/src/types/api';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Card, Text, useTheme } from 'react-native-paper';
 
 interface ChatBubbleProps {
@@ -30,14 +31,39 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
         ]}
       >
         <Card.Content>
-          <Text
-            variant="bodyMedium"
-            style={{
-              color: isUser ? '#FFFFFF' : theme.colors.onSurface,
-            }}
-          >
-            {message.content}
-          </Text>
+          {isUser ? (
+            <Text
+              variant="bodyMedium"
+              style={{
+                color: '#000000',
+              }}
+            >
+              {message.text}
+            </Text>
+          ) : (
+            <Markdown
+              style={{
+                body: { color: '#FFFFFF' },
+                heading1: { color: '#FFFFFF' },
+                heading2: { color: '#FFFFFF' },
+                heading3: { color: '#FFFFFF' },
+                heading4: { color: '#FFFFFF' },
+                heading5: { color: '#FFFFFF' },
+                heading6: { color: '#FFFFFF' },
+                code_inline: {
+                  backgroundColor: theme.colors.surface,
+                  color: '#FFFFFF',
+                },
+                fence: {
+                  backgroundColor: theme.colors.surface,
+                  color: '#FFFFFF',
+                },
+                link: { color: theme.colors.primary },
+              }}
+            >
+              {message.text}
+            </Markdown>
+          )}
         </Card.Content>
       </Card>
     </View>

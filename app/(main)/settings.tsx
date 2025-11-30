@@ -1,6 +1,6 @@
 // Settings Screen: User profile and app preferences
+import { useAuthContext } from '@/src/context/AuthContext';
 import { useThemeContext } from '@/src/context/ThemeContext';
-import { useAuth } from '@/src/hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -9,10 +9,8 @@ import {
   Avatar,
   Button,
   Divider,
-  List,
   SegmentedButtons,
   Snackbar,
-  Switch,
   Text,
   TextInput,
   useTheme,
@@ -22,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { user, logout, updateUserProfile, changePassword } = useAuth();
+  const { user, logout } = useAuthContext();
   const { themeMode, setThemeMode, isDarkMode } = useThemeContext();
   
   // State management
@@ -33,62 +31,15 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Notification preferences
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Firebase: Update user profile
+  // TODO: Implement profile update via backend API
   const handleUpdateProfile = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const result = await updateUserProfile(displayName, photoURL);
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess('Profile updated successfully!');
-    }
-    
-    setLoading(false);
+    setError('Profile update coming soon - needs backend API');
   };
 
+  // TODO: Implement password change via backend API
   const handleChangePassword = async () => {
-    if (!user) return;
-
-    if (!newPassword || !confirmPassword) {
-      setError('Please enter both password fields');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const result = await changePassword(newPassword);
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess('Password changed successfully!');
-      setNewPassword('');
-      setConfirmPassword('');
-    }
-    
-    setLoading(false);
+    setError('Password change coming soon - needs backend API');
   };
 
   // TODO: Integrate expo-image-picker for profile picture
@@ -112,12 +63,7 @@ export default function SettingsScreen() {
 
   const handleLogout = async () => {
     const result = await logout();
-    
-    if (result.error) {
-      setError('Failed to logout');
-    } else {
-      router.replace('/' as any);
-    }
+
   };
 
   return (
@@ -235,20 +181,6 @@ export default function SettingsScreen() {
               ]}
               style={styles.segmentedButtons}
             />
-
-            <Divider style={styles.preferenceDivider} />
-
-            <List.Item
-              title="Notifications"
-              description="Enable push notifications"
-              left={(props) => <List.Icon {...props} icon="bell" />}
-              right={() => (
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={setNotificationsEnabled}
-                />
-              )}
-            />
           </View>
 
           <Divider style={styles.divider} />
@@ -333,9 +265,6 @@ const styles = StyleSheet.create({
   },
   segmentedButtons: {
     marginBottom: 16,
-  },
-  preferenceDivider: {
-    marginVertical: 16,
   },
   logoutButton: {
     marginTop: 8,

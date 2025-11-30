@@ -1,21 +1,21 @@
 // Firebase: Login screen with email/password authentication
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import {
-  Button,
-  Snackbar,
-  Text,
-  TextInput,
-  useTheme,
+    Button,
+    Snackbar,
+    Text,
+    TextInput,
+    useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { login } = useAuth();
+  const { login } = useAuthContext();
   
   // State management
   const [email, setEmail] = useState('');

@@ -1,31 +1,69 @@
 // Main Layout: Drawer navigation with sidebar for chat history
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
+import { api } from '@/src/lib/api';
+import { ChatHistoryItem } from '@/src/types/api';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Button, Divider, Drawer as PaperDrawer, Text, useTheme } from 'react-native-paper';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Button, Divider, IconButton, Menu, Drawer as PaperDrawer, Text, useTheme } from 'react-native-paper';
 
 // Custom drawer content component
 function CustomDrawerContent(props: any) {
   const theme = useTheme();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, firebaseUser } = useAuthContext();
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  // TODO: Replace mock chat list with Firestore integration
-  const mockChats = [
-    { id: '1', title: 'Video Analysis 1', date: '2025-11-07' },
-    { id: '2', title: 'Lecture Notes', date: '2025-11-06' },
-    { id: '3', title: 'Meeting Summary', date: '2025-11-05' },
-  ];
+  // Fetch chat history when drawer opens
+  const fetchChatHistory = async () => {
+    if (!firebaseUser) return;
+    
+    try {
+      setLoading(true);
+      const token = await firebaseUser.getIdToken();
+      const history = await api.getChatHistory(token);
+      setChatHistory(history);
+    } catch (error) {
+      console.error('Failed to fetch chat history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChatHistory();
+  }, [firebaseUser]);
+
+  // Also refresh when the screen comes into focus (e.g., after completing generating)
+  useFocusEffect(
+    useCallback(() => {
+      fetchChatHistory();
+    }, [firebaseUser])
+  );
+
+  const handleDeleteChat = async (chatId: string) => {
+    try {
+      setDeleting(chatId);
+      setMenuVisible(null);
+      await api.deleteChat(chatId);
+      // Refresh chat history after deletion
+      await fetchChatHistory();
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   // Firebase: Handle user logout
   const handleLogout = async () => {
-    const result = await logout();
-    if (!result.error) {
-      router.replace('/' as any);
-    }
+    await logout();
+    router.replace('/' as any);
   };
 
   return (
@@ -51,18 +89,60 @@ function CustomDrawerContent(props: any) {
         <Divider style={styles.divider} />
 
         {/* Chat History */}
-        <Text variant="labelLarge" style={styles.sectionTitle}>
-          Recent Chats
-        </Text>
-        
-        {mockChats.map((chat) => (
-          <PaperDrawer.Item
-            key={chat.id}
-            label={chat.title}
-            icon="message-text"
-            onPress={() => router.push(`/chat/${chat.id}` as any)}
+        <View style={styles.chatHistoryHeader}>
+          <Text variant="labelLarge" style={styles.sectionTitle}>
+            Recent Chats
+          </Text>
+          <IconButton
+            icon="refresh"
+            size={20}
+            onPress={fetchChatHistory}
+            disabled={loading}
           />
-        ))}
+        </View>
+        
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" />
+          </View>
+        ) : chatHistory.length > 0 ? (
+          chatHistory.map((chat) => (
+            <View key={chat.id} style={styles.chatItem}>
+              <PaperDrawer.Item
+                label={chat.title || 'Untitled Chat'}
+                icon="message-text"
+                onPress={() => router.push(`/chat/${chat.id}` as any)}
+                style={styles.drawerItem}
+              />
+              {deleting === chat.id ? (
+                <ActivityIndicator size="small" style={styles.chatMenuButton} />
+              ) : (
+                <Menu
+                  visible={menuVisible === chat.id}
+                  onDismiss={() => setMenuVisible(null)}
+                  anchor={
+                    <IconButton
+                      icon="dots-vertical"
+                      size={20}
+                      onPress={() => setMenuVisible(chat.id)}
+                      style={styles.chatMenuButton}
+                    />
+                  }
+                >
+                  <Menu.Item
+                    leadingIcon="delete"
+                    onPress={() => handleDeleteChat(chat.id)}
+                    title="Delete"
+                  />
+                </Menu>
+              )}
+            </View>
+          ))
+        ) : (
+          <Text variant="bodyMedium" style={styles.emptyText}>
+            Your chat history will appear here
+          </Text>
+        )}
 
         <Divider style={styles.divider} />
 
@@ -156,5 +236,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 8,
     opacity: 0.6,
+  },
+  emptyText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    paddingVertical: 16,
+  },
+  loadingContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  chatHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  drawerItem: {
+    flex: 1,
+  },
+  chatMenuButton: {
+    margin: 0,
   },
 });

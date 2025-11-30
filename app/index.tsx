@@ -1,5 +1,5 @@
 // Navigation: Redirect to login or main app based on authentication state
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -7,7 +7,7 @@ import { useTheme } from 'react-native-paper';
 
 export default function Index() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthContext();
   const theme = useTheme();
 
   useEffect(() => {
