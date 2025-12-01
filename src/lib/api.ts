@@ -55,7 +55,6 @@ class ApiClient {
     // Response interceptor for error handling
     this.axiosInstance.interceptors.response.use(
       (response) => {
-        console.log('API Response:', response);
         return response;
       },
       (error: AxiosError) => {

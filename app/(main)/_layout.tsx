@@ -22,11 +22,12 @@ function CustomDrawerContent(props: any) {
   // Fetch chat history when drawer opens
   const fetchChatHistory = async () => {
     if (!firebaseUser) return;
-    
+
     try {
       setLoading(true);
       const token = await firebaseUser.getIdToken();
       const history = await api.getChatHistory(token);
+      console.log('Chat history:', history);
       setChatHistory(history);
     } catch (error) {
       console.error('Failed to fetch chat history:', error);
@@ -100,43 +101,46 @@ function CustomDrawerContent(props: any) {
             disabled={loading}
           />
         </View>
-        
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" />
           </View>
         ) : chatHistory.length > 0 ? (
           chatHistory.map((chat) => (
-            <View key={chat.id} style={styles.chatItem}>
-              <PaperDrawer.Item
-                label={chat.title || 'Untitled Chat'}
-                icon="message-text"
-                onPress={() => router.push(`/chat/${chat.id}` as any)}
-                style={styles.drawerItem}
-              />
-              {deleting === chat.id ? (
-                <ActivityIndicator size="small" style={styles.chatMenuButton} />
-              ) : (
-                <Menu
-                  visible={menuVisible === chat.id}
-                  onDismiss={() => setMenuVisible(null)}
-                  anchor={
-                    <IconButton
-                      icon="dots-vertical"
-                      size={20}
-                      onPress={() => setMenuVisible(chat.id)}
-                      style={styles.chatMenuButton}
+
+            <PaperDrawer.Item
+              label={chat.title || 'Untitled Chat'}
+              onPress={() => router.push(`/chat/${chat.id}` as any)}
+              style={styles.drawerItem}
+              theme={{ colors: { onSurfaceVariant: theme.colors.onSurface } }}
+              key={chat.id}
+              right={() => (
+                deleting === chat.id ? (
+                  <ActivityIndicator size="small" style={styles.chatMenuButton} />
+                ) : (
+                  <Menu
+                    visible={menuVisible === chat.id}
+                    onDismiss={() => setMenuVisible(null)}
+                    anchor={
+                      <IconButton
+                        icon="dots-vertical"
+                        size={20}
+                        onPress={() => setMenuVisible(chat.id)}
+                        style={styles.chatMenuButton}
+                      />
+                    }
+                  >
+                    <Menu.Item
+                      leadingIcon="delete"
+                      onPress={() => handleDeleteChat(chat.id)}
+                      title="Delete"
                     />
-                  }
-                >
-                  <Menu.Item
-                    leadingIcon="delete"
-                    onPress={() => handleDeleteChat(chat.id)}
-                    title="Delete"
-                  />
-                </Menu>
+                  </Menu>
+                )
               )}
-            </View>
+            />
+
           ))
         ) : (
           <Text variant="bodyMedium" style={styles.emptyText}>
