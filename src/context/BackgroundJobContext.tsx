@@ -30,7 +30,7 @@ export function BackgroundJobProvider({
     children: React.ReactNode;
 }) {
     const { createChat, refreshChats } = useChatContext();
-    const { uploadVideoForChat } = useFileUpload();
+    const { convertVideoToAudio, uploadAudioForChat } = useFileUpload();
     const [jobs, setJobs] = useState<Record<string, JobStatus>>({});
 
     // Poll intervals
@@ -86,7 +86,7 @@ export function BackgroundJobProvider({
             ...prev,
             [chatId]: {
                 chatId,
-                status: "uploading",
+                status: "converting", // Start with converting
                 progress: 0.1,
                 videoUri,
                 error: null,
@@ -120,19 +120,31 @@ export function BackgroundJobProvider({
 
     const processJob = async (chatId: string, videoUri: string) => {
         try {
+            // Step 1: Converting
+            updateJob(chatId, { status: "converting", progress: 0.1 });
+
+            let audioUri: string | null = null;
+            try {
+                audioUri = await convertVideoToAudio(videoUri);
+                if (!audioUri) throw new Error("Conversion returned no audio URI");
+            } catch (convErr: any) {
+                throw new Error(`Conversion failed: ${convErr.message}`);
+            }
+
+            // Step 2: Uploading
             updateJob(chatId, { status: "uploading", progress: 0.2 });
 
             let fileKey: string;
             try {
-                const { fileKey: key, error: uploadError } = await uploadVideoForChat(
+                const { fileKey: key, error: uploadError } = await uploadAudioForChat(
                     chatId,
-                    videoUri,
+                    audioUri,
                 );
                 if (uploadError || !key)
                     throw new Error(uploadError || "Upload failed");
                 fileKey = key;
             } catch (err: any) {
-                throw new Error(`Video upload failed: ${err.message}`);
+                throw new Error(`Audio upload failed: ${err.message}`);
             }
 
             updateJob(chatId, { status: "processing", progress: 0.3 });

@@ -1,6 +1,6 @@
 // Chat Screen: ChatGPT-style conversation interface with extracted notes
 import { ChatBubble } from "@/src/components/ChatBubble";
-import { ProgressBar } from "@/src/components/ProgressBar";
+import { GenerationSteps } from "@/src/components/GenerationSteps";
 import { useBackgroundJob } from "@/src/context/BackgroundJobContext";
 import { useChatContext } from "@/src/context/ChatContext";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -211,37 +211,10 @@ export default function ChatScreen() {
       ) : isProcessing ? (
         <View style={styles.centerContainer}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>✨</Text>
-          <Text variant="headlineSmall" style={{ marginBottom: 8 }}>
+          <Text variant="headlineSmall" style={{ marginBottom: 24 }}>
             Generating Notes...
           </Text>
-          <Text
-            variant="bodyMedium"
-            style={{
-              textAlign: "center",
-              marginBottom: 32,
-              opacity: 0.7,
-              paddingHorizontal: 32,
-            }}
-          >
-            Please wait while we transcribe and analyze your video.
-          </Text>
-          <View style={{ width: "80%" }}>
-            <ProgressBar
-              progress={job.progress}
-              color={theme.colors.primary}
-              label={
-                job.status === "uploading"
-                  ? "Uploading Video..."
-                  : job.status === "processing"
-                    ? "Processing..."
-                    : job.status === "transcribing"
-                      ? "Transcribing Audio..."
-                      : job.status === "generating_notes"
-                        ? "Generating Notes..."
-                        : "Loading..."
-              }
-            />
-          </View>
+          <GenerationSteps status={job.status} progress={job.progress} />
         </View>
       ) : (
         <KeyboardAvoidingView
