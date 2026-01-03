@@ -1,31 +1,32 @@
 // Light theme configuration - ChatGPT-like styling
-import { MD3LightTheme as DefaultTheme } from 'react-native-paper';
+import { MD3LightTheme as DefaultTheme } from "react-native-paper";
 
 export const lightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#2D2D2D',           // Dark gray for primary actions
-    background: '#FFFFFF',         // Pure white background
-    surface: '#FFFFFF',            // White surface
-    accent: '#8E8EA0',            // Muted gray accent
-    text: '#0D0D0D',              // Almost black text
-    onSurface: '#0D0D0D',         // Dark text on surfaces
-    onBackground: '#0D0D0D',      // Dark text on background
-    surfaceVariant: '#F7F7F8',    // Light gray for message bubbles
-    onSurfaceVariant: '#40414F',  // Gray text on variants
-    outline: '#ECECF1',           // Very light gray borders
-    error: '#EF4146',             // Red for errors
-    secondaryContainer: '#F7F7F8', // Light gray containers
-    onPrimary: '#FFFFFF',         // White text on primary
+    primary: "#1A1A1A", // Soft black for primary actions
+    background: "#FFFFFF", // Pure white background
+    surface: "#F4F4F5", // Light grey surface (Zinc-100) for distinct areas like headers/drawers
+    surfaceDisabled: "#E4E4E5",
+    accent: "#71717A", // Zinc-500
+    text: "#18181B", // Zinc-900
+    onSurface: "#18181B",
+    onBackground: "#18181B",
+    surfaceVariant: "#F4F4F5", // Light grey for incoming bubbles
+    onSurfaceVariant: "#3F3F46", // Dark grey text on bubbles
+    outline: "#E4E4E7", // Zinc-200
+    error: "#EF4444",
+    secondaryContainer: "#E4E4E7",
+    onPrimary: "#FFFFFF",
     elevation: {
-      level0: 'transparent',
-      level1: '#FAFAFA',
-      level2: '#F5F5F5',
-      level3: '#F0F0F0',
-      level4: '#ECECEC',
-      level5: '#E8E8E8',
-    },
+      level0: "transparent",
+      level1: "#F4F4F5",
+      level2: "#E4E4E7",
+      level3: "#D4D4D8",
+      level4: "#A1A1AA",
+      level5: "#71717A",
+    },  
   },
 };
 

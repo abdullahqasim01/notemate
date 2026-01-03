@@ -1,61 +1,44 @@
 // Main Layout: Drawer navigation with sidebar for chat history
-import { useAuthContext } from '@/src/context/AuthContext';
-import { api } from '@/src/lib/api';
-import { ChatHistoryItem } from '@/src/types/api';
-import { DrawerContentScrollView } from '@react-navigation/drawer';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { Drawer } from 'expo-router/drawer';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Button, Divider, IconButton, Menu, Drawer as PaperDrawer, Text, useTheme } from 'react-native-paper';
+import { useAuthContext } from "@/src/context/AuthContext";
+import { useChatContext } from "@/src/context/ChatContext";
+import { DrawerContentScrollView } from "@react-navigation/drawer";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Drawer } from "expo-router/drawer";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import {
+  Button,
+  Divider,
+  IconButton,
+  Menu,
+  Drawer as PaperDrawer,
+  Text,
+  useTheme,
+} from "react-native-paper";
 
 // Custom drawer content component
 function CustomDrawerContent(props: any) {
   const theme = useTheme();
   const router = useRouter();
-  const { logout, firebaseUser } = useAuthContext();
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { logout } = useAuthContext();
+  const { chats, refreshChats, deleteChat, loading } = useChatContext(); // Use global chat context
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Fetch chat history when drawer opens
-  const fetchChatHistory = async () => {
-    if (!firebaseUser) return;
-
-    try {
-      setLoading(true);
-      const token = await firebaseUser.getIdToken();
-      const history = await api.getChatHistory(token);
-      console.log('Chat history:', history);
-      setChatHistory(history);
-    } catch (error) {
-      console.error('Failed to fetch chat history:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchChatHistory();
-  }, [firebaseUser]);
-
-  // Also refresh when the screen comes into focus (e.g., after completing generating)
+  // Focus effect to ensure freshness (optional since context should handle it, but good for safety)
   useFocusEffect(
     useCallback(() => {
-      fetchChatHistory();
-    }, [firebaseUser])
+      refreshChats();
+    }, []),
   );
 
   const handleDeleteChat = async (chatId: string) => {
     try {
       setDeleting(chatId);
       setMenuVisible(null);
-      await api.deleteChat(chatId);
-      // Refresh chat history after deletion
-      await fetchChatHistory();
+      await deleteChat(chatId);
     } catch (error) {
-      console.error('Failed to delete chat:', error);
+      console.error("Failed to delete chat:", error);
     } finally {
       setDeleting(null);
     }
@@ -64,11 +47,14 @@ function CustomDrawerContent(props: any) {
   // Firebase: Handle user logout
   const handleLogout = async () => {
     await logout();
-    router.replace('/' as any);
+    router.replace("/" as any);
   };
 
   return (
-    <DrawerContentScrollView {...props} style={{ backgroundColor: theme.colors.background }}>
+    <DrawerContentScrollView
+      {...props}
+      style={{ backgroundColor: theme.colors.background }}
+    >
       <View style={styles.drawerContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -81,7 +67,7 @@ function CustomDrawerContent(props: any) {
         <Button
           mode="contained"
           icon="plus"
-          onPress={() => router.push('/new-chat' as any)}
+          onPress={() => router.push("/new-chat" as any)}
           style={styles.newChatButton}
         >
           New Chat
@@ -97,27 +83,49 @@ function CustomDrawerContent(props: any) {
           <IconButton
             icon="refresh"
             size={20}
-            onPress={fetchChatHistory}
+            onPress={refreshChats}
             disabled={loading}
           />
         </View>
 
-        {loading ? (
+        {loading && chats.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" />
           </View>
-        ) : chatHistory.length > 0 ? (
-          chatHistory.map((chat) => (
-
-            <PaperDrawer.Item
-              label={chat.title || 'Untitled Chat'}
-              onPress={() => router.push(`/chat/${chat.id}` as any)}
-              style={styles.drawerItem}
-              theme={{ colors: { onSurfaceVariant: theme.colors.onSurface } }}
+        ) : chats.length > 0 ? (
+          chats.map((chat) => (
+            <Pressable
               key={chat.id}
-              right={() => (
-                deleting === chat.id ? (
-                  <ActivityIndicator size="small" style={styles.chatMenuButton} />
+              onPress={() => router.push(`/chat/${chat.id}` as any)}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.drawerItem,
+                {
+                  backgroundColor: pressed
+                    ? theme.colors.surfaceVariant
+                    : "transparent",
+                },
+              ]}
+              android_ripple={{
+                color: theme.colors.onSurfaceVariant,
+                borderless: false,
+              }}
+            >
+              <View style={styles.drawerItemContent}>
+                <Text
+                  variant="bodyMedium"
+                  style={[
+                    styles.drawerItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {chat.title || "Untitled Chat"}
+                </Text>
+                {deleting === chat.id ? (
+                  <ActivityIndicator
+                    size="small"
+                    style={styles.chatMenuButton}
+                  />
                 ) : (
                   <Menu
                     visible={menuVisible === chat.id}
@@ -137,10 +145,9 @@ function CustomDrawerContent(props: any) {
                       title="Delete"
                     />
                   </Menu>
-                )
-              )}
-            />
-
+                )}
+              </View>
+            </Pressable>
           ))
         ) : (
           <Text variant="bodyMedium" style={styles.emptyText}>
@@ -154,17 +161,13 @@ function CustomDrawerContent(props: any) {
         <PaperDrawer.Item
           label="Settings"
           icon="cog"
-          onPress={() => router.push('/settings' as any)}
+          onPress={() => router.push("/settings" as any)}
         />
 
         <Divider style={styles.divider} />
 
         {/* Logout */}
-        <PaperDrawer.Item
-          label="Logout"
-          icon="logout"
-          onPress={handleLogout}
-        />
+        <PaperDrawer.Item label="Logout" icon="logout" onPress={handleLogout} />
       </View>
     </DrawerContentScrollView>
   );
@@ -189,28 +192,22 @@ export default function MainLayout() {
       <Drawer.Screen
         name="new-chat"
         options={{
-          title: 'New Chat',
+          title: "New Chat",
           headerShown: true,
         }}
       />
-      <Drawer.Screen
-        name="generating"
-        options={{
-          title: 'Generating Notes',
-          headerShown: true,
-        }}
-      />
+
       <Drawer.Screen
         name="chat/[id]"
         options={{
-          title: 'Chat',
+          title: "Chat",
           headerShown: true,
         }}
       />
       <Drawer.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: "Settings",
           headerShown: true,
         }}
       />
@@ -221,14 +218,15 @@ export default function MainLayout() {
 const styles = StyleSheet.create({
   drawerContent: {
     flex: 1,
-    padding: 16,
+    padding: 12, // Reduced from 16
+    paddingHorizontal: 2, // Explicitly reduce horizontal padding
   },
   header: {
     paddingVertical: 16,
     paddingHorizontal: 8,
   },
   headerTitle: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   newChatButton: {
     marginVertical: 8,
@@ -237,30 +235,44 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   sectionTitle: {
+    fontWeight: "bold",
+    fontSize: 18,
     paddingHorizontal: 8,
     paddingVertical: 8,
     opacity: 0.6,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.6,
     paddingVertical: 16,
   },
   loadingContainer: {
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   chatHistoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   chatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   drawerItem: {
+    marginHorizontal: 0,
+    paddingHorizontal: 8, // Add small padding for touch target but keeping it tight
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  drawerItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  drawerItemText: {
     flex: 1,
+    marginRight: 8,
   },
   chatMenuButton: {
     margin: 0,

@@ -1,14 +1,15 @@
 // Root Layout: Configure PaperProvider with theme switching
-import { AuthProvider } from '@/src/context/AuthContext';
-import { ChatProvider } from '@/src/context/ChatContext';
-import { ThemeProvider, useThemeContext } from '@/src/context/ThemeContext';
-import { darkTheme, lightTheme } from '@/src/theme';
-import { Stack } from 'expo-router';
-import React from 'react';
-import 'react-native-gesture-handler';
-import { PaperProvider } from 'react-native-paper';
-import 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from "@/src/context/AuthContext";
+import { BackgroundJobProvider } from "@/src/context/BackgroundJobContext";
+import { ChatProvider } from "@/src/context/ChatContext";
+import { ThemeProvider, useThemeContext } from "@/src/context/ThemeContext";
+import { darkTheme, lightTheme } from "@/src/theme";
+import { Stack } from "expo-router";
+import React from "react";
+import "react-native-gesture-handler";
+import { PaperProvider } from "react-native-paper";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 function RootNavigator() {
   const { isDarkMode } = useThemeContext();
@@ -16,11 +17,11 @@ function RootNavigator() {
 
   return (
     <PaperProvider theme={theme}>
-      <Stack 
-        key={isDarkMode ? 'dark' : 'light'}
-        screenOptions={{ 
+      <Stack
+        key={isDarkMode ? "dark" : "light"}
+        screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background }
+          contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
         <Stack.Screen name="index" />
@@ -36,9 +37,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <ChatProvider>
-          <ThemeProvider>
-            <RootNavigator />
-          </ThemeProvider>
+          <BackgroundJobProvider>
+            <ThemeProvider>
+              <RootNavigator />
+            </ThemeProvider>
+          </BackgroundJobProvider>
         </ChatProvider>
       </AuthProvider>
     </SafeAreaProvider>

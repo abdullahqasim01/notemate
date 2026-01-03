@@ -1,30 +1,31 @@
 // Dark theme configuration - ChatGPT-like styling
-import { MD3DarkTheme as DefaultTheme } from 'react-native-paper';
+import { MD3DarkTheme as DefaultTheme } from "react-native-paper";
 
 export const darkTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#ECECF1',           // Light gray for primary actions
-    background: '#0D0D0D',         // Almost black background (ChatGPT dark)
-    surface: '#1E1E1F',           // Dark gray surface
-    accent: '#8E8EA0',            // Muted gray accent
-    text: '#ECECF1',              // Light gray text
-    onSurface: '#ECECF1',         // Light text on surfaces
-    onBackground: '#ECECF1',      // Light text on background
-    surfaceVariant: '#2F2F2F',    // Darker gray for message bubbles
-    onSurfaceVariant: '#ECECF1',  // Light text on variants
-    outline: '#40414F',           // Medium gray borders
-    error: '#EF4146',             // Red for errors
-    secondaryContainer: '#2F2F2F', // Dark gray containers
-    onPrimary: '#0D0D0D',         // Dark text on primary
+    primary: "#FAFAFA", // Off-white for primary actions
+    background: "#18181B", // Zinc-900 (Rich Dark Grey) instead of Pitch Black
+    surface: "#27272A", // Zinc-800 for headers/drawers
+    surfaceDisabled: "#3F3F46",
+    accent: "#A1A1AA", // Zinc-400
+    text: "#F4F4F5", // Zinc-100
+    onSurface: "#F4F4F5",
+    onBackground: "#F4F4F5",
+    surfaceVariant: "#27272A", // Zinc-800 for bubbles
+    onSurfaceVariant: "#E4E4E7",
+    outline: "#3F3F46", // Zinc-700
+    error: "#EF4444",
+    secondaryContainer: "#3F3F46",
+    onPrimary: "#18181B",
     elevation: {
-      level0: 'transparent',
-      level1: '#1A1A1B',
-      level2: '#202124',
-      level3: '#292A2D',
-      level4: '#2F3136',
-      level5: '#36373C',
+      level0: "transparent",
+      level1: "#27272A",
+      level2: "#3F3F46",
+      level3: "#52525B",
+      level4: "#71717A",
+      level5: "#A1A1AA",
     },
   },
 };

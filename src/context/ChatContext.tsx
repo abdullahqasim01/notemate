@@ -1,25 +1,34 @@
-// ChatContext: Global chat state management with auto-fetch
-import { api } from '@/src/lib/api';
-import { ApiError, Chat, Message } from '@/src/types/api';
-import React, { createContext, useContext, useState } from 'react';
+/* ... imports ... */
+import { api } from "@/src/lib/api";
+import { ApiError, Chat, ChatHistoryItem, Message } from "@/src/types/api";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useAuthContext } from "./AuthContext";
 
 interface ChatContextType {
+  chats: ChatHistoryItem[];
   currentChatId: string | null;
   currentChat: Chat | null;
   messages: Message[];
   notes: string | null;
   loading: boolean;
   sending: boolean;
+  refreshChats: () => Promise<void>;
   createChat: () => Promise<{ chatId: string | null; error: string | null }>;
   loadChat: (chatId: string) => Promise<void>;
   loadMessages: (chatId: string) => Promise<void>;
-  addMessage: (chatId: string, content: string) => Promise<{ error: string | null }>;
+  addMessage: (
+    chatId: string,
+    content: string,
+  ) => Promise<{ error: string | null }>;
+  deleteChat: (chatId: string) => Promise<void>;
   clearChat: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const { firebaseUser } = useAuthContext();
+  const [chats, setChats] = useState<ChatHistoryItem[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -27,15 +36,40 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
 
+  // Load chats on auth change
+  useEffect(() => {
+    if (firebaseUser) {
+      refreshChats();
+    } else {
+      setChats([]);
+    }
+  }, [firebaseUser]);
+
+  const refreshChats = async () => {
+    if (!firebaseUser) return;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const history = await api.getChatHistory(token);
+      setChats(history);
+    } catch (error) {
+      console.error("Failed to refresh chats:", error);
+    }
+  };
+
   const createChat = async () => {
     try {
       setLoading(true);
       const response = await api.createChat();
       setCurrentChatId(response.chatId);
+      // Refresh list to show new chat
+      await refreshChats();
       return { chatId: response.chatId, error: null };
     } catch (error: any) {
       const apiError = error as ApiError;
-      return { chatId: null, error: apiError.message || 'Failed to create chat' };
+      return {
+        chatId: null,
+        error: apiError.message || "Failed to create chat",
+      };
     } finally {
       setLoading(false);
     }
@@ -52,7 +86,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setNotes(null);
 
       // Load notes using the download endpoint if chat is completed
-      if (chat.status === 'completed' || chat.status === 'done') {
+      if (chat.status === "completed" || chat.status === "done") {
         try {
           const { downloadUrl } = await api.getNotesDownloadUrl(chatId);
           const response = await fetch(downloadUrl);
@@ -63,12 +97,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } catch (error) {
-          console.error('Failed to load notes:', error);
+          console.error("Failed to load notes:", error);
           // Keep notes as null if loading fails
         }
       }
     } catch (error: any) {
-      console.error('Failed to load chat:', error);
+      console.error("Failed to load chat:", error);
       throw error;
     } finally {
       setLoading(false);
@@ -78,10 +112,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const loadMessages = async (chatId: string) => {
     try {
       setLoading(true);
+      // Clear messages immediately to avoid showing previous chat's messages
+      setMessages([]);
       const msgs = await api.getMessages(chatId);
       setMessages(msgs);
     } catch (error: any) {
-      console.error('Failed to load messages:', error);
+      console.error("Failed to load messages:", error);
       throw error;
     } finally {
       setLoading(false);
@@ -92,52 +128,66 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       // Validate input
       if (!content || !content.trim()) {
-        return { error: 'Message cannot be empty' };
+        return { error: "Message cannot be empty" };
       }
 
       if (!chatId) {
-        return { error: 'Chat ID is required' };
+        return { error: "Chat ID is required" };
       }
 
       setSending(true);
-      
+
       // Optimistically add user message
       const tempUserMessage: Message = {
         id: `temp-${Date.now()}`,
-        role: 'user',
+        role: "user",
         text: content,
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, tempUserMessage]);
 
       const response = await api.sendMessage(chatId, { text: content });
-      
+
       // Replace temp message with real messages from server
       setMessages((prev) => {
-        const withoutTemp = prev.filter(m => m.id !== tempUserMessage.id);
+        const withoutTemp = prev.filter((m) => m.id !== tempUserMessage.id);
         return [...withoutTemp, response.userMessage, response.aiMessage];
       });
-      
+
       return { error: null };
     } catch (error: any) {
-      console.error('Send message error:', error);
+      console.error("Send message error:", error);
       const apiError = error as ApiError;
-      
+
       // Remove optimistic message on error
-      setMessages((prev) => prev.filter(m => !m.id.startsWith('temp-')));
-      
+      setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
+
       // Provide specific error messages
-      const errorMessage = apiError.statusCode === 401
-        ? 'Authentication failed. Please log in again.'
-        : apiError.statusCode === 404
-        ? 'Chat not found. Please refresh and try again.'
-        : apiError.statusCode === 0
-        ? 'Network error. Please check your connection.'
-        : apiError.message || 'Failed to send message. Please try again.';
-      
+      const errorMessage =
+        apiError.statusCode === 401
+          ? "Authentication failed. Please log in again."
+          : apiError.statusCode === 404
+            ? "Chat not found. Please refresh and try again."
+            : apiError.statusCode === 0
+              ? "Network error. Please check your connection."
+              : apiError.message || "Failed to send message. Please try again.";
+
       return { error: errorMessage };
     } finally {
       setSending(false);
+    }
+  };
+
+  const deleteChat = async (chatId: string) => {
+    try {
+      await api.deleteChat(chatId);
+      if (currentChatId === chatId) {
+        clearChat();
+      }
+      await refreshChats();
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+      throw error;
     }
   };
 
@@ -151,16 +201,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   return (
     <ChatContext.Provider
       value={{
+        chats,
         currentChatId,
         currentChat,
         messages,
         notes,
         loading,
         sending,
+        refreshChats,
         createChat,
         loadChat,
         loadMessages,
         addMessage,
+        deleteChat,
         clearChat,
       }}
     >
@@ -172,7 +225,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 export function useChatContext() {
   const context = useContext(ChatContext);
   if (!context) {
-    throw new Error('useChatContext must be used within ChatProvider');
+    throw new Error("useChatContext must be used within ChatProvider");
   }
   return context;
 }
