@@ -161,6 +161,13 @@ class ApiClient {
     return response.data;
   }
 
+  async getNotesContent(chatId: string): Promise<{ content: string }> {
+    const response = await this.axiosInstance.get<{ content: string }>(
+      `/chats/${chatId}/notes/content`
+    );
+    return response.data;
+  }
+
   async getNotesDownloadUrl(chatId: string): Promise<{ downloadUrl: string }> {
     const response = await this.axiosInstance.get<{ downloadUrl: string }>(
       API_CONFIG.ENDPOINTS.NOTES_DOWNLOAD(chatId)

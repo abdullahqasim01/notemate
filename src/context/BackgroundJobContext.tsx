@@ -33,10 +33,8 @@ export function BackgroundJobProvider({
     const { convertVideoToAudio, uploadAudioForChat } = useFileUpload();
     const [jobs, setJobs] = useState<Record<string, JobStatus>>({});
 
-    // Poll intervals
-    const [pollIntervals, setPollIntervals] = useState<
-        Record<string, ReturnType<typeof setInterval>>
-    >({});
+    // Use ref for poll intervals so stopPolling always has the current map (avoids stale closure)
+    const pollIntervalsRef = React.useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
     const activeJobs = Object.values(jobs).filter(
         (j) =>
@@ -60,13 +58,10 @@ export function BackgroundJobProvider({
     };
 
     const stopPolling = (chatId: string) => {
-        if (pollIntervals[chatId]) {
-            clearInterval(pollIntervals[chatId]);
-            setPollIntervals((prev) => {
-                const next = { ...prev };
-                delete next[chatId];
-                return next;
-            });
+        const interval = pollIntervalsRef.current[chatId];
+        if (interval) {
+            clearInterval(interval);
+            delete pollIntervalsRef.current[chatId];
         }
     };
 
@@ -178,7 +173,7 @@ export function BackgroundJobProvider({
 
     const pollChatStatus = async (chatId: string) => {
         // Avoid double polling
-        if (pollIntervals[chatId]) return;
+        if (pollIntervalsRef.current[chatId]) return;
 
         let attempts = 0;
         const maxAttempts = 1080; // 90 mins (5s interval)
@@ -199,7 +194,7 @@ export function BackgroundJobProvider({
 
                 if (status === "completed" || status === "done") {
                     updateJob(chatId, { status: "completed", progress: 1.0 });
-                    await refreshChats(); // specific chat update?
+                    await refreshChats();
                     stopPolling(chatId);
                     return;
                 }
@@ -209,7 +204,7 @@ export function BackgroundJobProvider({
                 let newProgress = 0.5;
 
                 if (status === "transcribing") {
-                    newStatus = "processing"; // Keep generalized or specific
+                    newStatus = "processing";
                     newProgress = 0.6;
                 } else if (status === "generating_notes") {
                     newStatus = "processing";
@@ -227,19 +222,25 @@ export function BackgroundJobProvider({
                     stopPolling(chatId);
                 }
             } catch (err: any) {
-                // Transient error?
+                const statusCode = err?.statusCode ?? err?.status;
+                // 404 means the chat was deleted or never existed — stop polling immediately
+                if (statusCode === 404) {
+                    console.log(`Polling stopped: chat ${chatId} not found`);
+                    stopPolling(chatId);
+                    return;
+                }
+                // Other errors are transient (network blip) — keep polling
                 console.log("Polling transient error:", err);
-                // Don't fail immediately on network blip, but maybe track consecutive failures?
             }
         }, 5000);
 
-        setPollIntervals((prev) => ({ ...prev, [chatId]: interval }));
+        pollIntervalsRef.current[chatId] = interval;
     };
 
-    // Cleanup on unmount (less relevant for global context but good practice)
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            Object.values(pollIntervals).forEach(clearInterval);
+            Object.values(pollIntervalsRef.current).forEach(clearInterval);
         };
     }, []);
 

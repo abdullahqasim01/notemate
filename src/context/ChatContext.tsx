@@ -85,20 +85,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // Clear notes first to avoid showing stale data
       setNotes(null);
 
-      // Load notes using the download endpoint if chat is completed
+      // Load notes via backend content endpoint (avoids direct S3 fetch issues in React Native)
       if (chat.status === "completed" || chat.status === "done") {
         try {
-          const { downloadUrl } = await api.getNotesDownloadUrl(chatId);
-          const response = await fetch(downloadUrl);
-          if (response.ok) {
-            const notesText = await response.text();
-            if (notesText && notesText.trim()) {
-              setNotes(notesText);
-            }
+          const { content } = await api.getNotesContent(chatId);
+          if (content && content.trim()) {
+            setNotes(content);
           }
         } catch (error) {
           console.error("Failed to load notes:", error);
-          // Keep notes as null if loading fails
         }
       }
     } catch (error: any) {

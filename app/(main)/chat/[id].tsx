@@ -43,6 +43,7 @@ export default function ChatScreen() {
     clearChat,
     deleteChat,
     sending,
+    loading,
   } = useChatContext();
 
   const { jobs, retryJob, cancelJob } = useBackgroundJob();
@@ -57,6 +58,13 @@ export default function ChatScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Auto-load notes when modal opens and notes aren't loaded yet
+  useEffect(() => {
+    if (isModalVisible && !notes && (currentChat?.status === "completed" || currentChat?.status === "done")) {
+      loadChat(chatId);
+    }
+  }, [isModalVisible]);
 
   useEffect(() => {
     // Load chat data when screen mounts
@@ -398,13 +406,14 @@ export default function ChatScreen() {
               ) : currentChat?.status === "completed" ||
                 currentChat?.status === "done" ? (
                 <View style={styles.loadingCommon}>
-                  <ActivityIndicator
-                    size="small"
-                    color={theme.colors.primary}
-                  />
-                  <Text variant="bodyMedium" style={{ marginTop: 8 }}>
-                    Loading notes...
-                  </Text>
+                  <Button
+                    mode="outlined"
+                    onPress={() => loadChat(chatId)}
+                    loading={loading}
+                    icon="refresh"
+                  >
+                    Load Notes
+                  </Button>
                 </View>
               ) : (
                 <View style={styles.loadingCommon}>
