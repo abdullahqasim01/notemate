@@ -32,32 +32,35 @@ export function useFileUpload() {
       const inputPath = videoUri.replace("file://", "");
       const normalizedOutputPath = outputPath.replace("file://", "");
 
-      // Convert video to audio using FFmpeg
-      // -i: input file
-      // -vn: no video (audio only)
-      // -acodec: audio codec (copy to avoid re-encoding if possible, or aac)
-      // -y: overwrite output file if exists
-      const command = `-i "${inputPath}" -vn -acodec aac -b:a 128k -y "${normalizedOutputPath}"`;
+      // Try fast remux first (no re-encode) — works when audio is already AAC
+      const copyCommand = `-i "${inputPath}" -vn -acodec copy -y "${normalizedOutputPath}"`;
+      console.log("FFmpeg copy command:", copyCommand);
 
-      console.log("FFmpeg command:", command);
+      const copySession = await FFmpegKit.execute(copyCommand);
+      const copyReturnCode = await copySession.getReturnCode();
 
-      const session = await FFmpegKit.execute(command);
-      const returnCode = await session.getReturnCode();
-      const output = await session.getOutput();
-      const failStackTrace = await session.getFailStackTrace();
+      if (!ReturnCode.isSuccess(copyReturnCode)) {
+        // Fast path failed — fall back to AAC re-encode
+        console.log("FFmpeg copy failed, falling back to AAC re-encode");
+        const encodeCommand = `-i "${inputPath}" -vn -acodec aac -b:a 128k -y "${normalizedOutputPath}"`;
+        console.log("FFmpeg encode command:", encodeCommand);
 
-      console.log("FFmpeg return code:", returnCode);
-      console.log("FFmpeg output:", output);
+        const encodeSession = await FFmpegKit.execute(encodeCommand);
+        const encodeReturnCode = await encodeSession.getReturnCode();
+        const output = await encodeSession.getOutput();
+        const failStackTrace = await encodeSession.getFailStackTrace();
 
-      if (!ReturnCode.isSuccess(returnCode)) {
-        console.error("FFmpeg conversion failed");
-        console.error("FFmpeg error output:", output);
-        if (failStackTrace) {
-          console.error("FFmpeg stack trace:", failStackTrace);
+        console.log("FFmpeg encode return code:", encodeReturnCode);
+
+        if (!ReturnCode.isSuccess(encodeReturnCode)) {
+          console.error("FFmpeg re-encode failed:", output);
+          if (failStackTrace) console.error("FFmpeg stack trace:", failStackTrace);
+          throw new Error(
+            `FFmpeg failed: ${output?.substring(0, 200) || "Unknown error"}`,
+          );
         }
-        throw new Error(
-          `FFmpeg failed: ${output?.substring(0, 200) || "Unknown error"}`,
-        );
+      } else {
+        console.log("FFmpeg copy succeeded (fast path)");
       }
 
       // Verify the audio file exists

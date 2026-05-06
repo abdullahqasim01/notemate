@@ -1,5 +1,6 @@
 // useUploader: Presigned URL file uploads
 import { api } from '@/src/lib/api';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useState } from 'react';
 
 export function useUploader() {
@@ -25,24 +26,20 @@ export function useUploader() {
         chatId: options.chatId,
       });
 
-      // Read file as blob
-      const response = await fetch(localUri);
-      const blob = await response.blob();
-
-      // Upload directly to storage using presigned URL
+      // Use uploadAsync to stream the file directly — avoids loading the entire file into memory
       console.log('Uploading to:', uploadUrl);
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: blob,
+      const result = await FileSystem.uploadAsync(uploadUrl, localUri, {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
         headers: {
-          'Content-Type': blob.type,
+          'Content-Type': 'audio/mp4',
         },
       });
 
-      console.log('Upload response:', uploadResponse);
+      console.log('Upload response status:', result.status);
 
-      if (!uploadResponse.ok) {
-        throw new Error('Upload failed');
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(`Upload failed: ${result.status}`);
       }
 
       setProgress(100);

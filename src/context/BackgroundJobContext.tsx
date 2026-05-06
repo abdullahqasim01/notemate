@@ -181,7 +181,7 @@ export function BackgroundJobProvider({
         if (pollIntervals[chatId]) return;
 
         let attempts = 0;
-        const maxAttempts = 120; // 10 mins approx (5s interval)
+        const maxAttempts = 1080; // 90 mins (5s interval)
 
         const interval = setInterval(async () => {
             try {

@@ -8,7 +8,7 @@ NoteMate is a React Native app that allows users to upload videos, automatically
 - **Frontend:** Expo SDK 54, React Native, TypeScript
 - **Authentication:** Firebase (Email/Password)
 - **Backend:** NestJS (REST API)
-- **File Storage:** UploadThings
+- **File Storage:** Filebase (S3-compatible)
 - **Video Processing:** FFmpeg (client-side video → audio conversion)
 
 ---
@@ -161,7 +161,7 @@ Status Codes:
 
 4. Upload Audio (35%)
    ↓
-   PUT audio file to uploadUrl (UploadThings)
+   PUT audio file to uploadUrl (Filebase)
    ↓
    Get publicUrl (audio location)
 
@@ -199,7 +199,7 @@ Query Params: {
 }
 
 Response: {
-  uploadUrl: string,      // Pre-signed UploadThings URL for PUT
+  uploadUrl: string,      // Pre-signed Filebase URL for PUT
   fileKey: string,        // Unique file identifier
   publicUrl: string       // Public URL to access the file after upload
 }
@@ -218,7 +218,7 @@ Headers: {
   Authorization: "Bearer {firebase-id-token}"
 }
 Body: {
-  audioUrl: string  // Public URL from UploadThings
+  audioUrl: string  // Public URL from Filebase
 }
 
 Response: {
@@ -449,7 +449,7 @@ Status Codes:
 | `POST` | `/chats/{id}/process-audio` | Start audio processing | ✅ Firebase |
 | `GET` | `/chats/{id}/messages` | Get chat messages | ✅ Firebase |
 | `POST` | `/chats/{id}/messages` | Send message & get AI reply | ✅ Firebase |
-| `POST` | `/uploads/sign-url` | Get UploadThings signed URL | ✅ Firebase |
+| `POST` | `/uploads/sign-url` | Get Filebase signed URL | ✅ Firebase |
 
 ---
 
@@ -553,19 +553,19 @@ When `POST /chats/{id}/process-audio` is called:
    ↓
 2. Update chat: status = "processing"
    ↓
-3. Download audio from UploadThings
+3. Download audio from Filebase
    ↓
 4. Update chat: status = "transcribing"
    ↓
 5. Transcribe audio → text (Whisper AI)
    ↓
-6. Save transcription to UploadThings
+6. Save transcription to Filebase
    ↓
 7. Update chat: transcriptionUrl, status = "generating_notes"
    ↓
 8. Generate notes from transcription (GPT)
    ↓
-9. Save notes to UploadThings
+9. Save notes to Filebase
    ↓
 10. Update chat: notesUrl, status = "completed"
 ```
@@ -618,9 +618,10 @@ FIREBASE_PROJECT_ID=your_project_id
 FIREBASE_PRIVATE_KEY=your_private_key
 FIREBASE_CLIENT_EMAIL=your_client_email
 
-# UploadThings
-UPLOADTHING_SECRET=your_uploadthing_secret
-UPLOADTHING_APP_ID=your_app_id
+# Filebase Configuration
+FILEBASE_ACCESS_KEY_ID=your_access_key_id
+FILEBASE_SECRET_ACCESS_KEY=your_secret_access_key
+FILEBASE_BUCKET_NAME=your_bucket_name
 
 # AI Services
 OPENAI_API_KEY=your_openai_key  # For GPT
@@ -698,7 +699,7 @@ DATABASE_URL=your_database_url
 - [ ] Login with credentials
 - [ ] Upload video file
 - [ ] Verify FFmpeg conversion (video → audio)
-- [ ] Verify audio upload to UploadThings
+- [ ] Verify audio upload to Filebase
 - [ ] Verify `/process-audio` call
 - [ ] Monitor polling requests to `/chats/{id}`
 - [ ] Verify status changes (processing → transcribing → generating_notes → completed)
@@ -716,7 +717,7 @@ DATABASE_URL=your_database_url
 
 1. **Client-side FFmpeg** - Video to audio conversion happens on the device, reducing backend processing
 2. **Firebase Auth Only** - Backend doesn't store passwords, only verifies Firebase tokens
-3. **UploadThings** - All files (audio, transcription, notes) stored in UploadThings, not on backend server
+3. **Filebase** - All files (audio, transcription, notes) stored in Filebase, not on backend server
 4. **Polling** - Frontend polls every 5 seconds for max 5 minutes (60 attempts)
 5. **Text-only Chat** - No voice messages, only text input/output
 6. **Background Processing** - Audio processing should be async/background job, not blocking the endpoint
