@@ -48,7 +48,7 @@ export default function SignupScreen() {
     setLoading(true);
     setError('');
 
-    const result = await signup(email, password, name);
+    const result = await signup(name, email, password);
     
     if (result.error) {
       setError(result.error);

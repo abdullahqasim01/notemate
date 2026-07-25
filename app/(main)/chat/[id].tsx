@@ -4,16 +4,21 @@ import { GenerationSteps } from "@/src/components/GenerationSteps";
 import { useBackgroundJob } from "@/src/context/BackgroundJobContext";
 import { useChatContext } from "@/src/context/ChatContext";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
+import * as Print from "expo-print";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
+  PermissionsAndroid,
   Platform,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import ReactNativeBlobUtil from "react-native-blob-util";
 import Markdown from "react-native-markdown-display";
 import {
   Button,
@@ -58,6 +63,7 @@ export default function ChatScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Auto-load notes when modal opens and notes aren't loaded yet
   useEffect(() => {
@@ -65,6 +71,159 @@ export default function ChatScreen() {
       loadChat(chatId);
     }
   }, [isModalVisible]);
+
+  // Convert markdown to HTML for PDF generation
+  const markdownToHtml = (markdown: string): string => {
+    let html = markdown;
+
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+    // Bold
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>');
+
+    // Unordered lists
+    html = html.replace(/^\* (.+)$/gim, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+    // Line breaks
+    html = html.replace(/\n/gim, '<br/>');
+
+    return html;
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!notes || !notes.trim()) {
+      Alert.alert("No Notes", "There are no notes to download.");
+      return;
+    }
+
+    try {
+      setDownloadingPdf(true);
+
+      // Request storage permission for Android
+      if (Platform.OS === "android") {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          {
+            title: "Storage Permission",
+            message: "App needs access to save PDF to Downloads folder",
+            buttonPositive: "OK",
+          }
+        );
+
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert(
+            "Permission Denied",
+            "Storage permission is required to save the PDF."
+          );
+          setDownloadingPdf(false);
+          return;
+        }
+      }
+
+      // Convert markdown to HTML
+      const htmlContent = markdownToHtml(notes);
+
+      // Create HTML document with styling
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                padding: 20px;
+                line-height: 1.6;
+                color: #333;
+              }
+              h1 {
+                color: #2196F3;
+                font-size: 24px;
+                margin-top: 20px;
+                margin-bottom: 10px;
+              }
+              h2 {
+                color: #2196F3;
+                font-size: 20px;
+                margin-top: 16px;
+                margin-bottom: 8px;
+              }
+              h3 {
+                color: #2196F3;
+                font-size: 18px;
+                margin-top: 12px;
+                margin-bottom: 6px;
+              }
+              ul {
+                margin: 8px 0;
+                padding-left: 20px;
+              }
+              li {
+                margin: 4px 0;
+              }
+              a {
+                color: #2196F3;
+                text-decoration: none;
+              }
+              strong {
+                font-weight: 600;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Extracted Notes</h1>
+            ${htmlContent}
+          </body>
+        </html>
+      `;
+
+      // Generate PDF
+      const { uri } = await Print.printToFileAsync({ html });
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+      const fileName = `notes_${timestamp}.pdf`;
+
+      // Get Downloads directory path
+      const downloadDir = ReactNativeBlobUtil.fs.dirs.DownloadDir;
+      const destPath = `${downloadDir}/${fileName}`;
+
+      // Copy the PDF to Downloads folder
+      await ReactNativeBlobUtil.fs.cp(uri.replace("file://", ""), destPath);
+
+      // Scan the file so it appears in Downloads immediately
+      await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+        {
+          name: fileName,
+          parentFolder: "",
+          mimeType: "application/pdf",
+        },
+        "Download",
+        destPath
+      );
+
+      Alert.alert(
+        "PDF Downloaded",
+        `Your notes have been saved to Downloads folder as ${fileName}`,
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      Alert.alert("Error", "Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   useEffect(() => {
     // Load chat data when screen mounts
@@ -431,6 +590,14 @@ export default function ChatScreen() {
               )}
             </Card.Content>
             <Card.Actions>
+              <Button
+                onPress={handleDownloadPdf}
+                loading={downloadingPdf}
+                disabled={!notes || !notes.trim() || downloadingPdf}
+                icon="download"
+              >
+                Download PDF
+              </Button>
               <Button onPress={() => setIsModalVisible(false)}>Close</Button>
             </Card.Actions>
           </Card>
